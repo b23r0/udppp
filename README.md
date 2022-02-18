@@ -4,7 +4,7 @@ High performence UDP reverse proxy support with Proxy Protocol
 # Features
 
 * Async
-* Support Protocol V2
+* Support Proxy Protocol V2
 * No unsafe code
 * Single executable
 * Linux/Windows/Mac/BSD support
