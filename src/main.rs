@@ -53,6 +53,9 @@ async fn main() -> io::Result<()>  {
     opts.optflag("p",
                 "proxyprotocol",
                 "enable proxy-protocol");
+    opts.optflag("s",
+                "slient",
+                "disable print log");
 
     let matches = opts.parse(&args[1..])
         .unwrap_or_else(|_| {
@@ -68,6 +71,10 @@ async fn main() -> io::Result<()>  {
         Some(addr) => addr,
         None => "127.0.0.1".to_owned(),
     };
+
+    if matches.opt_present("s") {
+        ::log::set_max_level(LevelFilter::Off);
+    }
 
     forward(&bind_addr, local_port, &remote_host, remote_port , enable_proxy_protocol).await;
 
