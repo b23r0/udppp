@@ -34,5 +34,6 @@ Options:
                         The address on which to listen for incoming requests
     -p, --proxyprotocol
                         enable proxy-protocol
+    -s, --slient        disable print log
 
 ```
