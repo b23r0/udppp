@@ -1,13 +1,19 @@
+use async_std::future::timeout;
 use async_std::sync::Mutex;
 use futures::FutureExt;
 use getopts::Options;
 use std::collections::HashMap;
+use std::time::Duration;
 use std::{env};
 use std::net::{SocketAddrV4, SocketAddr};
 use std::sync::{Arc};
 use proxy_protocol::{version2, ProxyHeader};
 use async_std::{io, net::{UdpSocket}, task};
 use futures::select;
+mod utils;
+use utils::*;
+
+const TIMEOUT_SECOND : u64 = 3 * 60;
 
 fn print_usage(program: &str, opts: Options) {
     let program_path = std::path::PathBuf::from(program);
@@ -74,23 +80,24 @@ async fn forward(bind_addr: &str, local_port: u32, remote_host: &str, remote_por
 
     let ( c_send , c_recv) = async_std::channel::unbounded::<(SocketAddr, Vec<u8>)>();
 
-    let send_lck = Arc::new(Mutex::new(c_send));
+    let send_lck = Arc::new(async_std::sync::Mutex::new(c_send));
 
-    let mut socket_addr_map: HashMap<SocketAddr , Arc<UdpSocket>> = HashMap::new();
-
+    let socket_addr_map: Arc<Mutex<HashMap<SocketAddr , (Arc<UdpSocket>, i64)>>> = Arc::new(Mutex::new(HashMap::new()));
     loop{
         select! {
             a = local_socket.recv_from(&mut buf).fuse() => {
+                let mut socket_addr_map_lck = socket_addr_map.lock().await;
                 let (size, src_addr) = a.unwrap();
                 let mut old_stream = false;
                 let upstream: Arc<UdpSocket>;
 
-                if socket_addr_map.contains_key(&src_addr) {
-                    upstream = socket_addr_map[&src_addr].clone();
+                if socket_addr_map_lck.contains_key(&src_addr) {
+                    upstream = socket_addr_map_lck[&src_addr].0.clone();
+                    socket_addr_map_lck.get_mut(&src_addr).unwrap().1 = cur_timestamp();
                     old_stream = true;
                 } else {
                     upstream = Arc::new(UdpSocket::bind(bind_addr.to_string() + ":0").await.unwrap());
-                    socket_addr_map.insert(src_addr, upstream.clone());
+                    socket_addr_map_lck.insert(src_addr, (upstream.clone(), cur_timestamp()));
                 }
 
                 if enable_proxy_protocol {
@@ -115,11 +122,22 @@ async fn forward(bind_addr: &str, local_port: u32, remote_host: &str, remote_por
         
                 if ! old_stream {
                     let send_lck = send_lck.clone();
+                    let socket_addr_map_in_worker_lck = socket_addr_map.clone();
                     task::spawn(async move {
+                        let mut buf = [0; 64 * 1024];
                         loop{
-                            let mut buf = [0; 64 * 1024];
-                            let (size , _) = upstream.recv_from(&mut buf).await.unwrap();
-                            send_lck.lock().await.send((src_addr , buf[..size].to_vec())).await.unwrap();
+                            match timeout(Duration::from_secs(TIMEOUT_SECOND) ,upstream.recv_from(&mut buf)).await{
+                                Ok(p) => {
+                                    send_lck.lock().await.send((src_addr , buf[..p.unwrap().0].to_vec())).await.unwrap();
+                                },
+                                Err(_) => {
+                                    let mut socket_addr_map = socket_addr_map_in_worker_lck.lock().await;
+                                    if is_timeout(socket_addr_map[&src_addr].1, TIMEOUT_SECOND){
+                                        socket_addr_map.remove(&src_addr);
+                                        break;
+                                    }
+                                }
+                            };
                         }
                     });
                 } 
