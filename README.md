@@ -1,4 +1,4 @@
-# udppp
+# udppp [![Build Status](https://img.shields.io/github/workflow/status/b23r0/udppp/Rust)](https://github.com/b23r0/udppp/actions/workflows/rust.yml) [![ChatOnDiscord](https://img.shields.io/badge/chat-on%20discord-blue)](https://discord.gg/ZKtYMvDFN4) [![Crate](https://img.shields.io/crates/v/udppp)](https://crates.io/crates/udppp)
 High performence UDP reverse proxy support with Proxy Protocol
 
 # Features
@@ -33,6 +33,6 @@ Options:
     -b, --bind BIND_ADDR
                         The address on which to listen for incoming requests
     -p, --proxyprotocol
-                        enable proxy-protocol transparent
+                        enable proxy-protocol
 
 ```

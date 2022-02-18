@@ -7,7 +7,7 @@ description = "High performence UDP reverse proxy support with Proxy Protocol"
 homepage = "https://github.com/b23r0/udppp"
 repository = "https://github.com/b23r0/udppp"
 readme = "README.md"
-keywords = ["proxy", "udp", "networking"]
+keywords = ["proxy", "udp", "networking" , "proxyprotocol"]
 license = "MIT"
 
 [dependencies]
