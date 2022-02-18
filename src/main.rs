@@ -2,6 +2,8 @@ use async_std::future::timeout;
 use async_std::sync::Mutex;
 use futures::FutureExt;
 use getopts::Options;
+use log::LevelFilter;
+use simple_logger::SimpleLogger;
 use std::collections::HashMap;
 use std::time::Duration;
 use std::{env};
@@ -25,6 +27,9 @@ fn print_usage(program: &str, opts: Options) {
 
 #[async_std::main]
 async fn main() -> io::Result<()>  {
+	SimpleLogger::new().with_colors(true).init().unwrap();
+	::log::set_max_level(LevelFilter::Info);
+
     let args: Vec<String> = env::args().collect();
     let program = args[0].clone();
 
@@ -47,7 +52,7 @@ async fn main() -> io::Result<()>  {
                 "BIND_ADDR");
     opts.optflag("p",
                 "proxyprotocol",
-                "enable proxy-protocol transparent");
+                "enable proxy-protocol");
 
     let matches = opts.parse(&args[1..])
         .unwrap_or_else(|_| {
@@ -72,7 +77,19 @@ async fn main() -> io::Result<()>  {
 async fn forward(bind_addr: &str, local_port: u32, remote_host: &str, remote_port: u32 , enable_proxy_protocol : bool) {
 
     let local_addr = format!("{}:{}", bind_addr, local_port);
-    let local_socket = UdpSocket::bind(&local_addr).await.unwrap();
+    let local_socket = match UdpSocket::bind(&local_addr).await{
+        Ok(p) => p,
+        Err(_) => {
+            log::error!("listen to {} faild!" , local_addr);
+            return;
+        },
+    };
+
+    log::info!("listen to {}" , local_addr);
+
+    if enable_proxy_protocol {
+        log::info!("enable proxy-protocol");
+    }
 
     let remote_addr = format!("{}:{}", remote_host, remote_port);
 
@@ -91,6 +108,8 @@ async fn forward(bind_addr: &str, local_port: u32, remote_host: &str, remote_por
                 let mut old_stream = false;
                 let upstream: Arc<UdpSocket>;
 
+                log::info!("recv from [{}:{}] size : {} " , src_addr.ip().to_string() , src_addr.port() , size);
+
                 if socket_addr_map_lck.contains_key(&src_addr) {
                     upstream = socket_addr_map_lck[&src_addr].0.clone();
                     socket_addr_map_lck.get_mut(&src_addr).unwrap().1 = cur_timestamp();
@@ -98,7 +117,11 @@ async fn forward(bind_addr: &str, local_port: u32, remote_host: &str, remote_por
                 } else {
                     upstream = Arc::new(UdpSocket::bind(bind_addr.to_string() + ":0").await.unwrap());
                     socket_addr_map_lck.insert(src_addr, (upstream.clone(), cur_timestamp()));
+
+                    log::info!("bind new forwarding address [{}:{}] " , upstream.local_addr().unwrap().ip().to_string() , upstream.local_addr().unwrap().port());
                 }
+
+                log::info!("send to upstream [{}] size : {} " , remote_addr , size);
 
                 if enable_proxy_protocol {
                     let srcaddr : SocketAddrV4 = src_addr.to_string().as_str().parse().unwrap();
@@ -128,11 +151,14 @@ async fn forward(bind_addr: &str, local_port: u32, remote_host: &str, remote_por
                         loop{
                             match timeout(Duration::from_secs(TIMEOUT_SECOND) ,upstream.recv_from(&mut buf)).await{
                                 Ok(p) => {
-                                    send_lck.lock().await.send((src_addr , buf[..p.unwrap().0].to_vec())).await.unwrap();
+                                    let size = p.unwrap().0;
+                                    log::info!("send downstream to [{}:{}] size : {} " , src_addr.ip().to_string() , src_addr.port() , size);
+                                    send_lck.lock().await.send((src_addr , buf[..size].to_vec())).await.unwrap();
                                 },
                                 Err(_) => {
                                     let mut socket_addr_map = socket_addr_map_in_worker_lck.lock().await;
                                     if is_timeout(socket_addr_map[&src_addr].1, TIMEOUT_SECOND){
+                                        log::info!("unbind [{}:{}] for source address: [{}:{}]" , socket_addr_map[&src_addr].0.local_addr().unwrap().ip().to_string() , socket_addr_map[&src_addr].0.local_addr().unwrap().port() , src_addr.ip().to_string() , src_addr.port());
                                         socket_addr_map.remove(&src_addr);
                                         break;
                                     }
