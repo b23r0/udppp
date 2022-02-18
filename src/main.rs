@@ -2,16 +2,12 @@ use async_std::sync::Mutex;
 use futures::FutureExt;
 use getopts::Options;
 use std::collections::HashMap;
-use std::time::Duration;
 use std::{env};
 use std::net::{SocketAddrV4, SocketAddr};
 use std::sync::{Arc};
 use proxy_protocol::{version2, ProxyHeader};
 use async_std::{io, net::{UdpSocket}, task};
 use futures::select;
-
-const TIMEOUT: u64 = 3 * 60 * 100; //3 minutes
-static mut ENABLE_PROXY_PROTOCOL : bool = false;
 
 fn print_usage(program: &str, opts: Options) {
     let program_path = std::path::PathBuf::from(program);
@@ -52,10 +48,8 @@ async fn main() -> io::Result<()>  {
                             print_usage(&program, opts);
                             std::process::exit(-1);
                         });
-
-    unsafe {
-        ENABLE_PROXY_PROTOCOL = matches.opt_present("p");
-    }
+    
+    let enable_proxy_protocol = matches.opt_present("p");
     let local_port: u32 = matches.opt_str("l").unwrap().parse().unwrap();
     let remote_port: u32 = matches.opt_str("r").unwrap().parse().unwrap();
     let remote_host = matches.opt_str("h").unwrap();
@@ -64,12 +58,12 @@ async fn main() -> io::Result<()>  {
         None => "127.0.0.1".to_owned(),
     };
 
-    forward(&bind_addr, local_port, &remote_host, remote_port).await;
+    forward(&bind_addr, local_port, &remote_host, remote_port , enable_proxy_protocol).await;
 
     return Ok(());
 }
 
-async fn forward(bind_addr: &str, local_port: u32, remote_host: &str, remote_port: u32) {
+async fn forward(bind_addr: &str, local_port: u32, remote_host: &str, remote_port: u32 , enable_proxy_protocol : bool) {
 
     let local_addr = format!("{}:{}", bind_addr, local_port);
     let local_socket = UdpSocket::bind(&local_addr).await.unwrap();
@@ -99,7 +93,7 @@ async fn forward(bind_addr: &str, local_port: u32, remote_host: &str, remote_por
                     socket_addr_map.insert(src_addr, upstream.clone());
                 }
 
-                if unsafe { ENABLE_PROXY_PROTOCOL } {
+                if enable_proxy_protocol {
                     let srcaddr : SocketAddrV4 = src_addr.to_string().as_str().parse().unwrap();
                     let dstaddr : SocketAddrV4 = local_socket.local_addr().unwrap().to_string().as_str().parse().unwrap();
                     let pp_header = ProxyHeader::Version2 {
