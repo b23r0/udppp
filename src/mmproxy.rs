@@ -75,15 +75,15 @@ pub async fn forward_mmproxy(_: &str, local_port: u32, remote_host: &str, remote
         
                 log::info!("recv from [{}:{}] size : {} " , src_addr.ip().to_string() , src_addr.port() , size);
 
-                if socket_addr_map_lck.contains_key(&src_addr) {
+                if let std::collections::hash_map::Entry::Vacant(e) = socket_addr_map_lck.entry(src_addr) {
+                    upstream = std::net::UdpSocket::bind_sas("0.0.0.0:0".parse::<SocketAddr>().unwrap()).unwrap();
+                    e.insert((upstream.try_clone().unwrap(), cur_timestamp()));
+        
+                    log::info!("bind new forwarding address [{}:{}] " , upstream.local_addr().unwrap().ip().to_string() , upstream.local_addr().unwrap().port());
+                } else {
                     upstream = socket_addr_map_lck[&src_addr].0.try_clone().unwrap();
                     socket_addr_map_lck.get_mut(&src_addr).unwrap().1 = cur_timestamp();
                     old_stream = true;
-                } else {
-                    upstream = std::net::UdpSocket::bind_sas("0.0.0.0:0".parse::<SocketAddr>().unwrap()).unwrap();
-                    socket_addr_map_lck.insert(src_addr, (upstream.try_clone().unwrap(), cur_timestamp()));
-        
-                    log::info!("bind new forwarding address [{}:{}] " , upstream.local_addr().unwrap().ip().to_string() , upstream.local_addr().unwrap().port());
                 }
         
                 let (real_addr , buf) = match parse_proxy_protocol(buf){

@@ -92,7 +92,7 @@ async fn main() -> io::Result<()>  {
     }
     
 
-    return Ok(());
+    Ok(())
 }
 
 async fn forward(bind_addr: &str, local_port: u32, remote_host: &str, remote_port: u32 , enable_proxy_protocol : bool) {
@@ -131,15 +131,15 @@ async fn forward(bind_addr: &str, local_port: u32, remote_host: &str, remote_por
 
                 log::info!("recv from [{}:{}] size : {} " , src_addr.ip().to_string() , src_addr.port() , size);
 
-                if socket_addr_map_lck.contains_key(&src_addr) {
+                if let std::collections::hash_map::Entry::Vacant(e) = socket_addr_map_lck.entry(src_addr) {
+                    upstream = Arc::new(UdpSocket::bind(bind_addr.to_string() + ":0").await.unwrap());
+                    e.insert((upstream.clone(), cur_timestamp()));
+
+                    log::info!("bind new forwarding address [{}:{}] " , upstream.local_addr().unwrap().ip().to_string() , upstream.local_addr().unwrap().port());
+                } else {
                     upstream = socket_addr_map_lck[&src_addr].0.clone();
                     socket_addr_map_lck.get_mut(&src_addr).unwrap().1 = cur_timestamp();
                     old_stream = true;
-                } else {
-                    upstream = Arc::new(UdpSocket::bind(bind_addr.to_string() + ":0").await.unwrap());
-                    socket_addr_map_lck.insert(src_addr, (upstream.clone(), cur_timestamp()));
-
-                    log::info!("bind new forwarding address [{}:{}] " , upstream.local_addr().unwrap().ip().to_string() , upstream.local_addr().unwrap().port());
                 }
 
                 log::info!("send to upstream [{}] size : {} " , remote_addr , size);
