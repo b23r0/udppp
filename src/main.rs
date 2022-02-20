@@ -14,13 +14,13 @@ use async_std::{io, net::{UdpSocket}, task};
 use futures::select;
 mod utils;
 use utils::*;
-
-const TIMEOUT_SECOND : u64 = 3 * 60;
+mod mmproxy;
+use mmproxy::*;
 
 fn print_usage(program: &str, opts: Options) {
     let program_path = std::path::PathBuf::from(program);
     let program_name = program_path.file_stem().unwrap().to_str().unwrap();
-    let brief = format!("Usage: {} [-b BIND_ADDR] -l LOCAL_PORT -h REMOTE_ADDR -r REMOTE_PORT -p",
+    let brief = format!("Usage: {} -m MODE [-b BIND_ADDR] -l LOCAL_PORT -h REMOTE_ADDR -r REMOTE_PORT -p",
                         program_name);
     print!("{}", opts.usage(&brief));
 }
@@ -34,9 +34,15 @@ async fn main() -> io::Result<()>  {
     let program = args[0].clone();
 
     let mut opts = Options::new();
+
+    opts.reqopt("m",
+                "mode",
+                "1 : reverse proxy mode , 2 : mmproxy mode",
+                "MODE");
+
     opts.reqopt("l",
                 "local-port",
-                "The local port to which udpproxy should bind to",
+                "The local port to which udppp should bind to",
                 "LOCAL_PORT");
     opts.reqopt("r",
                 "remote-port",
@@ -64,6 +70,7 @@ async fn main() -> io::Result<()>  {
                         });
     
     let enable_proxy_protocol = matches.opt_present("p");
+    let mode: u32 = matches.opt_str("m").unwrap().parse().unwrap();
     let local_port: u32 = matches.opt_str("l").unwrap().parse().unwrap();
     let remote_port: u32 = matches.opt_str("r").unwrap().parse().unwrap();
     let remote_host = matches.opt_str("h").unwrap();
@@ -75,10 +82,17 @@ async fn main() -> io::Result<()>  {
     if matches.opt_present("s") {
         ::log::set_max_level(LevelFilter::Off);
     }
+    if mode == 1{
+        forward(&bind_addr, local_port, &remote_host, remote_port , enable_proxy_protocol).await;
+    } else if mode == 2{
+        forward_mmproxy(&bind_addr, local_port, &remote_host, remote_port ).await;
+    } else {
+        log::error!("unknown mode {}!!" , mode);
+        std::process::exit(-1);
+    }
+    
 
-    forward(&bind_addr, local_port, &remote_host, remote_port , enable_proxy_protocol).await;
-
-    return Ok(());
+    Ok(())
 }
 
 async fn forward(bind_addr: &str, local_port: u32, remote_host: &str, remote_port: u32 , enable_proxy_protocol : bool) {
@@ -117,15 +131,15 @@ async fn forward(bind_addr: &str, local_port: u32, remote_host: &str, remote_por
 
                 log::info!("recv from [{}:{}] size : {} " , src_addr.ip().to_string() , src_addr.port() , size);
 
-                if socket_addr_map_lck.contains_key(&src_addr) {
+                if let std::collections::hash_map::Entry::Vacant(e) = socket_addr_map_lck.entry(src_addr) {
+                    upstream = Arc::new(UdpSocket::bind(bind_addr.to_string() + ":0").await.unwrap());
+                    e.insert((upstream.clone(), cur_timestamp()));
+
+                    log::info!("bind new forwarding address [{}:{}] " , upstream.local_addr().unwrap().ip().to_string() , upstream.local_addr().unwrap().port());
+                } else {
                     upstream = socket_addr_map_lck[&src_addr].0.clone();
                     socket_addr_map_lck.get_mut(&src_addr).unwrap().1 = cur_timestamp();
                     old_stream = true;
-                } else {
-                    upstream = Arc::new(UdpSocket::bind(bind_addr.to_string() + ":0").await.unwrap());
-                    socket_addr_map_lck.insert(src_addr, (upstream.clone(), cur_timestamp()));
-
-                    log::info!("bind new forwarding address [{}:{}] " , upstream.local_addr().unwrap().ip().to_string() , upstream.local_addr().unwrap().port());
                 }
 
                 log::info!("send to upstream [{}] size : {} " , remote_addr , size);

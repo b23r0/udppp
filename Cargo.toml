@@ -1,13 +1,13 @@
 [package]
 name = "udppp"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["b23r0 <b23r0@foxmail.com>"]
-description = "High performence UDP reverse proxy support with Proxy Protocol"
+description = "High performence UDP proxy with Proxy Protocol and mmproxy support"
 homepage = "https://github.com/b23r0/udppp"
 repository = "https://github.com/b23r0/udppp"
 readme = "README.md"
-keywords = ["proxy", "udp", "networking" , "proxyprotocol"]
+keywords = ["proxy", "udp", "networking" , "proxyprotocol" , "mmproxy"]
 license = "MIT"
 
 [dependencies]
@@ -18,4 +18,6 @@ getopts = "0.2"
 rand = "0.8.5"
 proxy-protocol = "0.5.0"
 chrono = "0.4.19"
+udp_sas = "0.1.3"
+bytes = "1.1.0"
 async-std = {version = "1" , features = ["attributes"]}

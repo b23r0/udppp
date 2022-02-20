@@ -1,4 +1,5 @@
 use chrono::prelude::*;
+pub const TIMEOUT_SECOND : u64 = 3 * 60;
 
 pub fn cur_timestamp() -> i64{
     let dt = Local::now();
