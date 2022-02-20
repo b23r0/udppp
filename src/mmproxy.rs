@@ -94,7 +94,7 @@ pub async fn forward_mmproxy(_: &str, local_port: u32, remote_host: &str, remote
                     },
                 };
                 
-                log::info!("send to upstream [{}] size : {} " , remote_addr , size);
+                log::info!("send to upstream [{}] real address [{}] size : {} " , remote_addr , real_addr, buf.len());
 
                 upstream.send_sas(buf, &remote_addr ,&IpAddr::V4(*real_addr.ip())).unwrap();
         
