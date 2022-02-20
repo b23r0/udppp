@@ -17,8 +17,6 @@ use utils::*;
 mod mmproxy;
 use mmproxy::*;
 
-const TIMEOUT_SECOND : u64 = 3 * 60;
-
 fn print_usage(program: &str, opts: Options) {
     let program_path = std::path::PathBuf::from(program);
     let program_name = program_path.file_stem().unwrap().to_str().unwrap();
