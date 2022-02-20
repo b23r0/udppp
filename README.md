@@ -1,5 +1,5 @@
 # udppp [![Build Status](https://img.shields.io/github/workflow/status/b23r0/udppp/Rust)](https://github.com/b23r0/udppp/actions/workflows/rust.yml) [![ChatOnDiscord](https://img.shields.io/badge/chat-on%20discord-blue)](https://discord.gg/ZKtYMvDFN4) [![Crate](https://img.shields.io/crates/v/udppp)](https://crates.io/crates/udppp)
-High performence UDP proxy support with Proxy Protocol and mmproxy.
+High performence UDP proxy with Proxy Protocol and mmproxy support.
 
 # Features
 
@@ -67,7 +67,7 @@ ip route add local 0.0.0.0/0 dev lo table 123
 
 Normally, response packets coming from the application are routed to the Internet - via a default gateway. We do this by totally [abusing the AnyIP trick](https://blog.cloudflare.com/how-we-built-spectrum/) and assigning 0.0.0.0/0 to "local" - meaning that entire internet shall be treated as belonging to our machine. 
 
-## Run MMProxy (upstream server)
+## Run mmproxy (upstream server)
 
 Suppose the port of the application server is 127.0.0.1:8001
 
