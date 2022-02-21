@@ -1,5 +1,5 @@
 # udppp [![Build Status](https://img.shields.io/github/workflow/status/b23r0/udppp/Rust)](https://github.com/b23r0/udppp/actions/workflows/rust.yml) [![ChatOnDiscord](https://img.shields.io/badge/chat-on%20discord-blue)](https://discord.gg/ZKtYMvDFN4) [![Crate](https://img.shields.io/crates/v/udppp)](https://crates.io/crates/udppp)
-High performence UDP proxy with Proxy Protocol and mmproxy support.
+UDP proxy with Proxy Protocol and mmproxy support.
 
 # Features
 
@@ -74,3 +74,29 @@ Suppose the port of the application server is 127.0.0.1:8001
 ```
 ./udppp -m 2 -b 0.0.0.0 -l 8000 -h 127.0.0.1 -r 8001 -p
 ```
+# Benchmark
+
+load test tool : `https://github.com/b23r0/udppp/tree/main/test/udpbench`
+
+## Test Envoriment
+
+| Envoriment    | Value           |
+|-------------- |-----------      |
+| OS      | Ubuntu20.04       |
+| CPU           | Intel Xeon(Cascade Lake) Platinum 8269        |
+| CPU Cores       | 4             |
+| Memory       | 8G             |
+| Network       | LAN (0.2 Gbps)             |
+| Test Count    | 1k              |
+
+## Test Result
+
+| Project        | Language | Base        | Take Time |
+|----------------|----------|-------------|-----------|
+| udppp          | Rust     | Async-std   | 86 ms    |
+| nginx | C     | Multi-Thread   | 56 ms    |
+| [go-proxy](https://github.com/snail007/goproxy)         | Golang     | Goroutine       | 64 ms    |
+
+Take Time take the average of 10 times.
+
+(Test Date : 21 Feb 2022)

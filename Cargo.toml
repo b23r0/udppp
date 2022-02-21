@@ -1,9 +1,9 @@
 [package]
 name = "udppp"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2021"
 authors = ["b23r0 <b23r0@foxmail.com>"]
-description = "High performence UDP proxy with Proxy Protocol and mmproxy support"
+description = "UDP proxy with Proxy Protocol and mmproxy support"
 homepage = "https://github.com/b23r0/udppp"
 repository = "https://github.com/b23r0/udppp"
 readme = "README.md"
