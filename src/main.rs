@@ -86,7 +86,7 @@ async fn main() -> io::Result<()>  {
         ::log::set_max_level(LevelFilter::Off);
     }
 
-    let mut cpus = num_cpus::get()*2;
+    let mut cpus = num_cpus::get();
 
     if mode == 1{
         
