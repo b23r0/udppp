@@ -97,6 +97,6 @@ load test tool : `https://github.com/b23r0/udppp/tree/main/test/udpbench`
 | nginx | C     | Multi-Thread   | 56 ms    |
 | [go-proxy](https://github.com/snail007/goproxy)         | Golang     | Goroutine       | 64 ms    |
 
-Take Time take the average of 10 times.
+`Take Time` is take the average of 10 times.
 
 (Test Date : 21 Feb 2022)
