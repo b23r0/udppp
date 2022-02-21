@@ -1,9 +1,9 @@
 [package]
 name = "udppp"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2021"
 authors = ["b23r0 <b23r0@foxmail.com>"]
-description = "High performence UDP proxy with Proxy Protocol and mmproxy support"
+description = "UDP proxy with Proxy Protocol and mmproxy support"
 homepage = "https://github.com/b23r0/udppp"
 repository = "https://github.com/b23r0/udppp"
 readme = "README.md"
@@ -20,4 +20,6 @@ proxy-protocol = "0.5.0"
 chrono = "0.4.19"
 udp_sas = "0.1.3"
 bytes = "1.1.0"
+net2 = "0.2.37"
+num_cpus = "1.13.1"
 async-std = {version = "1" , features = ["attributes"]}

@@ -1,6 +1,7 @@
 use std::{net::{SocketAddr, SocketAddrV4, IpAddr}, io::{Error, ErrorKind}, time::Duration};
 use std::sync::{Arc};
 use async_std::{net::UdpSocket, task};
+use net2::{UdpBuilder, unix::UnixUdpBuilderExt};
 use proxy_protocol::parse;
 use udp_sas::UdpSas;
 use async_std::sync::Mutex;
@@ -47,13 +48,18 @@ fn parse_proxy_protocol(mut buf : &[u8]) -> Result<(SocketAddrV4 , &[u8]), Error
 pub async fn forward_mmproxy(_: &str, local_port: u32, remote_host: &str, remote_port: u32){
     let remote_addr : SocketAddr = format!("{}:{}", remote_host, remote_port).parse().unwrap();
     let local_addr = format!("0.0.0.0:{}", local_port);
-    let local_socket = match UdpSocket::bind(&local_addr).await{
-        Ok(p) => p,
-        Err(_) => {
-            log::error!("listen to {} faild!" , local_addr);
-            return;
-        },
-    };
+    let local_socket = match UdpBuilder::new_v4().unwrap()
+        .reuse_address(true).unwrap()
+        .reuse_port(true).unwrap()
+        .bind(local_addr.clone()) {
+            Ok(p) => p,
+            Err(_) => {
+                log::error!("listen to {} faild!" , local_addr);
+                return;
+            },
+        };
+
+    let local_socket = UdpSocket::from(local_socket);
 
     log::info!("listen mmproxy to {}" , local_addr);
 

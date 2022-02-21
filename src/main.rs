@@ -1,8 +1,10 @@
 use async_std::future::timeout;
 use async_std::sync::Mutex;
-use futures::FutureExt;
+use futures::{FutureExt};
 use getopts::Options;
 use log::LevelFilter;
+use net2::{UdpBuilder};
+use net2::unix::{UnixUdpBuilderExt};
 use simple_logger::SimpleLogger;
 use std::collections::HashMap;
 use std::time::Duration;
@@ -12,6 +14,7 @@ use std::sync::{Arc};
 use proxy_protocol::{version2, ProxyHeader};
 use async_std::{io, net::{UdpSocket}, task};
 use futures::select;
+use futures::future::*;
 mod utils;
 use utils::*;
 mod mmproxy;
@@ -82,10 +85,31 @@ async fn main() -> io::Result<()>  {
     if matches.opt_present("s") {
         ::log::set_max_level(LevelFilter::Off);
     }
+
+    let mut cpus = num_cpus::get();
+
     if mode == 1{
-        forward(&bind_addr, local_port, &remote_host, remote_port , enable_proxy_protocol).await;
+        
+        let mut workers = vec![];
+
+        while cpus != 0 {
+            workers.push(forward(&bind_addr, local_port, &remote_host, remote_port , enable_proxy_protocol));
+            cpus -= 1;
+        }
+
+        join_all(workers).await;
+
     } else if mode == 2{
-        forward_mmproxy(&bind_addr, local_port, &remote_host, remote_port ).await;
+
+        let mut workers = vec![];
+
+        while cpus != 0 {
+            workers.push(forward_mmproxy(&bind_addr, local_port, &remote_host, remote_port ));
+            cpus -= 1;
+        }
+
+        join_all(workers).await;
+        
     } else {
         log::error!("unknown mode {}!!" , mode);
         std::process::exit(-1);
@@ -98,13 +122,18 @@ async fn main() -> io::Result<()>  {
 async fn forward(bind_addr: &str, local_port: u32, remote_host: &str, remote_port: u32 , enable_proxy_protocol : bool) {
 
     let local_addr = format!("{}:{}", bind_addr, local_port);
-    let local_socket = match UdpSocket::bind(&local_addr).await{
-        Ok(p) => p,
-        Err(_) => {
-            log::error!("listen to {} faild!" , local_addr);
-            return;
-        },
-    };
+    let local_socket = match UdpBuilder::new_v4().unwrap()
+        .reuse_address(true).unwrap()
+        .reuse_port(true).unwrap()
+        .bind(local_addr.clone()) {
+            Ok(p) => p,
+            Err(_) => {
+                log::error!("listen to {} faild!" , local_addr);
+                return;
+            },
+        };
+
+    let local_socket = UdpSocket::from(local_socket);
 
     log::info!("listen to {}" , local_addr);
 
