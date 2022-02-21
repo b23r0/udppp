@@ -10,12 +10,11 @@ pub fn cur_timestamp() -> i64{
     dt.timestamp_millis()
 }
 
-async fn listen(port : i32) {
-    let local_addr = format!("0.0.0.0:{}", port);
+async fn listen(local_addr : &str) {
     let local_socket = match UdpBuilder::new_v4().unwrap()
         .reuse_address(true).unwrap()
         .reuse_port(true).unwrap()
-        .bind(local_addr.clone()) {
+        .bind(local_addr) {
             Ok(p) => p,
             Err(_) => {
                 return;
@@ -69,13 +68,13 @@ async fn main() -> io::Result<()>  {
                         });
     
     if matches.opt_present("l") {
-        let port: i32 = matches.opt_str("l").unwrap().parse().unwrap();
+        let addr = matches.opt_str("l").unwrap();
 
         let mut workers = vec![];
         let mut cpus = num_cpus::get()*2;
 
         while cpus != 0 {
-            workers.push(listen(port));
+            workers.push(listen(&addr));
             cpus -= 1;
         }
 
