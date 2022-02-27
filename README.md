@@ -72,7 +72,7 @@ Normally, response packets coming from the application are routed to the Interne
 Suppose the port of the application server is 127.0.0.1:8001
 
 ```
-./udppp -m 2 -b 0.0.0.0 -l 8000 -h 127.0.0.1 -r 8001 -p
+./udppp -m 2 -b 0.0.0.0 -l 8001 -h 127.0.0.1 -r 8002 -p
 ```
 # Benchmark
 

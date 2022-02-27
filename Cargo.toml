@@ -13,7 +13,6 @@ license = "MIT"
 [dependencies]
 simple_logger = "2.1.0"
 log = "0.4.14"
-futures = "0.3.0"
 getopts = "0.2"
 rand = "0.8.5"
 proxy-protocol = "0.5.0"
@@ -21,5 +20,6 @@ chrono = "0.4.19"
 udp_sas = "0.1.3"
 bytes = "1.1.0"
 net2 = "0.2.37"
+tokio = { version = "1", features = ["full"] }
 num_cpus = "1.13.1"
-async-std = {version = "1" , features = ["attributes"]}
+mimalloc = "0.1.28"

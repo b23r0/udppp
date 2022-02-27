@@ -1,24 +1,29 @@
-use async_std::future::timeout;
-use async_std::sync::Mutex;
-use futures::{FutureExt};
 use getopts::Options;
-use log::LevelFilter;
+use log::{LevelFilter};
 use net2::{UdpBuilder};
 use net2::unix::{UnixUdpBuilderExt};
 use simple_logger::SimpleLogger;
+use tokio::net::UdpSocket;
+use tokio::runtime::{Builder, Runtime};
+use tokio::sync::Mutex;
+use tokio::sync::mpsc::unbounded_channel;
+use tokio::time::timeout;
 use std::collections::HashMap;
 use std::time::Duration;
 use std::{env};
 use std::net::{SocketAddrV4, SocketAddr};
 use std::sync::{Arc};
 use proxy_protocol::{version2, ProxyHeader};
-use async_std::{io, net::{UdpSocket}, task};
-use futures::select;
-use futures::future::*;
+use tokio::{self, select};
 mod utils;
 use utils::*;
 mod mmproxy;
 use mmproxy::*;
+
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 fn print_usage(program: &str, opts: Options) {
     let program_path = std::path::PathBuf::from(program);
@@ -28,8 +33,7 @@ fn print_usage(program: &str, opts: Options) {
     print!("{}", opts.usage(&brief));
 }
 
-#[async_std::main]
-async fn main() -> io::Result<()>  {
+fn main() {
 	SimpleLogger::new().with_colors(true).init().unwrap();
 	::log::set_max_level(LevelFilter::Info);
 
@@ -88,38 +92,46 @@ async fn main() -> io::Result<()>  {
 
     let mut cpus = num_cpus::get();
 
+    let mut workers = vec![];
+
     if mode == 1{
-        
-        let mut workers = vec![];
 
         while cpus != 0 {
-            workers.push(forward(&bind_addr, local_port, &remote_host, remote_port , enable_proxy_protocol));
+            let bind_addr = bind_addr.clone();
+            let remote_host = remote_host.clone();
+            workers.push(std::thread::spawn(move || {
+                let rt = Builder::new_current_thread().enable_all().build().unwrap();
+                rt.block_on(forward(&bind_addr, local_port, &remote_host, remote_port , enable_proxy_protocol, &rt ));
+            }));
             cpus -= 1;
         }
 
-        join_all(workers).await;
+        for _ in 0..workers.len() {
+            workers.pop().unwrap().join().unwrap();
+        }
 
     } else if mode == 2{
 
-        let mut workers = vec![];
-
         while cpus != 0 {
-            workers.push(forward_mmproxy(&bind_addr, local_port, &remote_host, remote_port ));
+            let bind_addr = bind_addr.clone();
+            let remote_host = remote_host.clone();
+            workers.push(std::thread::spawn(move || {
+                let rt = Builder::new_current_thread().enable_all().build().unwrap();
+                rt.block_on(forward_mmproxy(&bind_addr, local_port, &remote_host, remote_port , &rt ));
+            }));
             cpus -= 1;
         }
 
-        join_all(workers).await;
+        for _ in 0..workers.len() {
+            workers.pop().unwrap().join().unwrap();
+        }
         
     } else {
-        log::error!("unknown mode {}!!" , mode);
         std::process::exit(-1);
     }
-    
-
-    Ok(())
 }
 
-async fn forward(bind_addr: &str, local_port: u32, remote_host: &str, remote_port: u32 , enable_proxy_protocol : bool) {
+async fn forward(bind_addr: &str, local_port: u32, remote_host: &str, remote_port: u32 , enable_proxy_protocol : bool , rt : &Runtime) {
 
     let local_addr = format!("{}:{}", bind_addr, local_port);
     let local_socket = match UdpBuilder::new_v4().unwrap()
@@ -132,8 +144,8 @@ async fn forward(bind_addr: &str, local_port: u32, remote_host: &str, remote_por
                 return;
             },
         };
-
-    let local_socket = UdpSocket::from(local_socket);
+    local_socket.set_nonblocking(true).unwrap();
+    let local_socket = UdpSocket::from_std(local_socket).unwrap();
 
     log::info!("listen to {}" , local_addr);
 
@@ -145,14 +157,15 @@ async fn forward(bind_addr: &str, local_port: u32, remote_host: &str, remote_por
 
     let mut buf = [0; 64 * 1024];
 
-    let ( c_send , c_recv) = async_std::channel::unbounded::<(SocketAddr, Vec<u8>)>();
+    let ( c_send , mut c_recv) = unbounded_channel::<(SocketAddr, Vec<u8>)>();
 
-    let send_lck = Arc::new(async_std::sync::Mutex::new(c_send));
+    let send_lck = Arc::new(Mutex::new(c_send));
 
     let socket_addr_map: Arc<Mutex<HashMap<SocketAddr , (Arc<UdpSocket>, i64)>>> = Arc::new(Mutex::new(HashMap::new()));
+
     loop{
         select! {
-            a = local_socket.recv_from(&mut buf).fuse() => {
+            a = local_socket.recv_from(&mut buf) => {
                 let mut socket_addr_map_lck = socket_addr_map.lock().await;
                 let (size, src_addr) = a.unwrap();
                 let mut old_stream = false;
@@ -196,14 +209,14 @@ async fn forward(bind_addr: &str, local_port: u32, remote_host: &str, remote_por
                 if ! old_stream {
                     let send_lck = send_lck.clone();
                     let socket_addr_map_in_worker_lck = socket_addr_map.clone();
-                    task::spawn(async move {
+                    rt.spawn(async move {
                         let mut buf = [0; 64 * 1024];
                         loop{
                             match timeout(Duration::from_secs(TIMEOUT_SECOND) ,upstream.recv_from(&mut buf)).await{
                                 Ok(p) => {
                                     let size = p.unwrap().0;
                                     log::info!("send downstream to [{}:{}] size : {} " , src_addr.ip().to_string() , src_addr.port() , size);
-                                    send_lck.lock().await.send((src_addr , buf[..size].to_vec())).await.unwrap();
+                                    send_lck.lock().await.send((src_addr , buf[..size].to_vec())).unwrap();
                                 },
                                 Err(_) => {
                                     let mut socket_addr_map = socket_addr_map_in_worker_lck.lock().await;
@@ -218,7 +231,7 @@ async fn forward(bind_addr: &str, local_port: u32, remote_host: &str, remote_por
                     });
                 } 
             },
-            b = c_recv.recv().fuse() => {
+            b = c_recv.recv() => {
                 let (src_addr , data) = b.unwrap();
                 local_socket.send_to(data.as_slice() , src_addr).await.unwrap();
             }
