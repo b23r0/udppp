@@ -7,7 +7,7 @@ description = "High performence UDP proxy with Proxy Protocol and mmproxy suppor
 homepage = "https://github.com/b23r0/udppp"
 repository = "https://github.com/b23r0/udppp"
 readme = "README.md"
-keywords = ["proxy", "udp", "networking" , "proxyprotocol" , "mmproxy", "transparent ip"]
+keywords = ["proxy", "udp", "networking" , "proxyprotocol" , "mmproxy", "transparentip"]
 license = "MIT"
 
 [dependencies]
