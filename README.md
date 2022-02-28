@@ -1,5 +1,5 @@
 # udppp [![Build Status](https://img.shields.io/github/workflow/status/b23r0/udppp/Rust)](https://github.com/b23r0/udppp/actions/workflows/rust.yml) [![ChatOnDiscord](https://img.shields.io/badge/chat-on%20discord-blue)](https://discord.gg/ZKtYMvDFN4) [![Crate](https://img.shields.io/crates/v/udppp)](https://crates.io/crates/udppp)
-UDP proxy with Proxy Protocol and mmproxy support.
+High performence UDP proxy with Proxy Protocol and mmproxy support.
 
 # Features
 
@@ -72,11 +72,13 @@ Normally, response packets coming from the application are routed to the Interne
 Suppose the port of the application server is 127.0.0.1:8001
 
 ```
-./udppp -m 2 -b 0.0.0.0 -l 8000 -h 127.0.0.1 -r 8001 -p
+./udppp -m 2 -b 0.0.0.0 -l 8001 -h 127.0.0.1 -r 8002 -p
 ```
 # Benchmark
 
 load test tool : `https://github.com/b23r0/udppp/tree/main/test/udpbench`
+
+Send a udp packet of 4 bytes and get the same return packet once, loop 1000 times. In the actual test of nginx, when the single test exceeds 1000 times, the client will not receive the return packet.
 
 ## Test Envoriment
 
@@ -93,10 +95,10 @@ load test tool : `https://github.com/b23r0/udppp/tree/main/test/udpbench`
 
 | Project        | Language | Base        | Take Time |
 |----------------|----------|-------------|-----------|
-| udppp          | Rust     | Async-std   | 86 ms    |
-| nginx | C     | Multi-Thread   | 56 ms    |
-| [go-proxy](https://github.com/snail007/goproxy)         | Golang     | Goroutine       | 64 ms    |
+| udppp          | Rust     | Tokio   | 56 ms    |
+| nginx | C     | Multi-Thread   | 54 ms    |
+| [go-proxy](https://github.com/snail007/goproxy)         | Golang     | Goroutine       | 65 ms    |
 
 `Take Time` is take the average of 10 times.
 
-(Test Date : 21 Feb 2022)
+(Test Date : 28 Feb 2022)

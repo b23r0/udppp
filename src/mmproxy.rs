@@ -1,13 +1,10 @@
 use std::{net::{SocketAddr, SocketAddrV4, IpAddr}, io::{Error, ErrorKind}, time::Duration};
 use std::sync::{Arc};
-use async_std::{net::UdpSocket, task};
 use net2::{UdpBuilder, unix::UnixUdpBuilderExt};
 use proxy_protocol::parse;
+use tokio::{net::UdpSocket, sync::{Mutex, mpsc::unbounded_channel}, select, runtime::Runtime, time::timeout};
 use udp_sas::UdpSas;
-use async_std::sync::Mutex;
 use std::collections::HashMap;
-use futures::FutureExt;
-use futures::select;
 
 use crate::utils::{TIMEOUT_SECOND, cur_timestamp, is_timeout};
 
@@ -45,9 +42,9 @@ fn parse_proxy_protocol(mut buf : &[u8]) -> Result<(SocketAddrV4 , &[u8]), Error
     Ok((addr , buf))
 }
 
-pub async fn forward_mmproxy(_: &str, local_port: u32, remote_host: &str, remote_port: u32){
+pub async fn forward_mmproxy(bind_addr: &str, local_port: u32, remote_host: &str, remote_port: u32 , rt : &Runtime){
     let remote_addr : SocketAddr = format!("{}:{}", remote_host, remote_port).parse().unwrap();
-    let local_addr = format!("0.0.0.0:{}", local_port);
+    let local_addr = format!("{}:{}", bind_addr, local_port);
     let local_socket = match UdpBuilder::new_v4().unwrap()
         .reuse_address(true).unwrap()
         .reuse_port(true).unwrap()
@@ -58,21 +55,20 @@ pub async fn forward_mmproxy(_: &str, local_port: u32, remote_host: &str, remote
                 return;
             },
         };
-
-    let local_socket = UdpSocket::from(local_socket);
-
+    local_socket.set_nonblocking(true).unwrap();
+    let local_socket = UdpSocket::from_std(local_socket).unwrap();
     log::info!("listen mmproxy to {}" , local_addr);
 
-    let ( c_send , c_recv) = async_std::channel::unbounded::<(SocketAddr, Vec<u8>)>();
+    let ( c_send , mut c_recv) = unbounded_channel::<(SocketAddr, Vec<u8>)>();
 
-    let send_lck = Arc::new(async_std::sync::Mutex::new(c_send));
+    let send_lck = Arc::new(Mutex::new(c_send));
 
     let mut buf = [0; 64 * 1024];
     let socket_addr_map: Arc<Mutex<HashMap<SocketAddr , (std::net::UdpSocket, i64)>>> = Arc::new(Mutex::new(HashMap::new()));
 
     loop{
         select!{
-            a = local_socket.recv_from(&mut buf).fuse() => {
+            a = local_socket.recv_from(&mut buf) => {
                 let mut socket_addr_map_lck = socket_addr_map.lock().await;
                 let (size, src_addr) = a.unwrap();
                 let buf = &buf[..size];
@@ -107,15 +103,16 @@ pub async fn forward_mmproxy(_: &str, local_port: u32, remote_host: &str, remote
                 if ! old_stream {
                     let send_lck = send_lck.clone();
                     let socket_addr_map_in_worker_lck = socket_addr_map.clone();
-                    task::spawn(async move {
+                    rt.spawn(async move {
                         let mut buf = [0; 64 * 1024];
-                        upstream.set_read_timeout(Some(Duration::from_secs(TIMEOUT_SECOND))).unwrap();
+                        upstream.set_nonblocking(true).unwrap();
+                        let upstream = UdpSocket::from_std(upstream).unwrap();
                         loop{
-                            match upstream.recv_sas(&mut buf){
+                            match timeout(Duration::from_secs(TIMEOUT_SECOND) ,upstream.recv_from(&mut buf)).await{
                                 Ok(p) => {
-                                    let size = p.0;
+                                    let size = p.unwrap().0;
                                     log::info!("send downstream to [{}:{}] size : {} " , src_addr.ip().to_string() , src_addr.port() , size);
-                                    send_lck.lock().await.send((src_addr , buf[..size].to_vec())).await.unwrap();
+                                    send_lck.lock().await.send((src_addr , buf[..size].to_vec())).unwrap();
                                 },
                                 Err(_) => {
                                     let mut socket_addr_map = socket_addr_map_in_worker_lck.lock().await;
@@ -130,7 +127,7 @@ pub async fn forward_mmproxy(_: &str, local_port: u32, remote_host: &str, remote
                     });
                 }
             },
-            b = c_recv.recv().fuse() => {
+            b = c_recv.recv() => {
                 let (src_addr , data) = b.unwrap();
                 local_socket.send_to(data.as_slice() , src_addr).await.unwrap();
             }
