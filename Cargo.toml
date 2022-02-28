@@ -3,11 +3,11 @@ name = "udppp"
 version = "0.4.0"
 edition = "2021"
 authors = ["b23r0 <b23r0@foxmail.com>"]
-description = "UDP proxy with Proxy Protocol and mmproxy support"
+description = "High performence UDP proxy with Proxy Protocol and mmproxy support"
 homepage = "https://github.com/b23r0/udppp"
 repository = "https://github.com/b23r0/udppp"
 readme = "README.md"
-keywords = ["proxy", "udp", "networking" , "proxyprotocol" , "mmproxy"]
+keywords = ["proxy", "udp", "networking" , "proxyprotocol" , "mmproxy", "transparent ip"]
 license = "MIT"
 
 [dependencies]
