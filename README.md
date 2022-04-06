@@ -1,4 +1,4 @@
-# rs-mmproxy [![Build Status](https://img.shields.io/github/workflow/status/b23r0/udppp/Rust)](https://github.com/b23r0/udppp/actions/workflows/rust.yml) [![ChatOnDiscord](https://img.shields.io/badge/chat-on%20discord-blue)](https://discord.gg/ZKtYMvDFN4) [![Crate](https://img.shields.io/crates/v/udppp)](https://crates.io/crates/udppp)
+# udp-mmproxy [![Build Status](https://img.shields.io/github/workflow/status/b23r0/udp-mmproxy/Rust)](https://github.com/b23r0/udp-mmproxy/actions/workflows/rust.yml) [![ChatOnDiscord](https://img.shields.io/badge/chat-on%20discord-blue)](https://discord.gg/ZKtYMvDFN4) [![Crate](https://img.shields.io/crates/v/udp-mmproxy)](https://crates.io/crates/udp-mmproxy)
 Rust implementation of MMProxy
 
 # Features
@@ -14,17 +14,17 @@ Rust implementation of MMProxy
 
 # Installation
 
-`$> cargo install udppp`
+`$> cargo install udp-mmproxy`
 
 # Usage
 
 ```
-Usage: udppp -m MODE [-b BIND_ADDR] -l LOCAL_PORT -h REMOTE_ADDR -r REMOTE_PORT -p
+Usage: udp-mmproxy -m MODE [-b BIND_ADDR] -l LOCAL_PORT -h REMOTE_ADDR -r REMOTE_PORT -p
 
 Options:
     -m, --mode MODE     1 : reverse proxy mode , 2 : mmproxy mode
     -l, --local-port LOCAL_PORT
-                        The local port to which udppp should bind to
+                        The local port to which udp-mmproxy should bind to
     -r, --remote-port REMOTE_PORT
                         The remote port to which UDP packets should be
                         forwarded
@@ -46,14 +46,14 @@ The idea comes from a creative paper, thanks to the author.
 
 However, cloudflare has not officially implemented mmproxy that supports udp. This project makes up for this shortcoming.
 
-![image]( https://github.com/b23r0/udppp/blob/main/example/mmproxy.jpg)
+![image]( https://github.com/b23r0/udp-mmproxy/blob/main/example/mmproxy.jpg)
 
 ## Run Proxy (proxy server)
 
 Suppose the udp reverse proxy service port is 8000 , upstream server is 192.168.0.2:8001
 
 ```
-./udppp -m 1 -b 0.0.0.0 -l 8000 -h 192.168.0.2 -r 8001 -p
+./udp-mmproxy -m 1 -b 0.0.0.0 -l 8000 -h 192.168.0.2 -r 8001 -p
 ```
 
 ## Routing setup (upstream server) 
@@ -72,11 +72,11 @@ Normally, response packets coming from the application are routed to the Interne
 Suppose the port of the application server is 127.0.0.1:8001
 
 ```
-./udppp -m 2 -b 0.0.0.0 -l 8001 -h 127.0.0.1 -r 8002 -p
+./udp-mmproxy -m 2 -b 0.0.0.0 -l 8001 -h 127.0.0.1 -r 8002 -p
 ```
 # Benchmark
 
-load test tool : `https://github.com/b23r0/udppp/tree/main/test/udpbench`
+load test tool : `https://github.com/b23r0/udp-mmproxy/tree/main/test/udpbench`
 
 Send a udp packet of 4 bytes and get the same return packet once, loop 1000 times. In the actual test of nginx, when the single test exceeds 1000 times, the client will not receive the return packet.
 
@@ -95,7 +95,7 @@ Send a udp packet of 4 bytes and get the same return packet once, loop 1000 time
 
 | Project        | Language | Base        | Take Time |
 |----------------|----------|-------------|-----------|
-| udppp          | Rust     | Tokio   | 56 ms    |
+| udp-mmproxy          | Rust     | Tokio   | 56 ms    |
 | nginx | C     | Multi-Thread   | 54 ms    |
 | [go-proxy](https://github.com/snail007/goproxy)         | Golang     | Goroutine       | 65 ms    |
 
