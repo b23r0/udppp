@@ -1,5 +1,5 @@
 # udp-mmproxy [![Build Status](https://img.shields.io/github/workflow/status/b23r0/udp-mmproxy/Rust)](https://github.com/b23r0/udp-mmproxy/actions/workflows/rust.yml) [![ChatOnDiscord](https://img.shields.io/badge/chat-on%20discord-blue)](https://discord.gg/ZKtYMvDFN4) [![Crate](https://img.shields.io/crates/v/udp-mmproxy)](https://crates.io/crates/udp-mmproxy)
-Rust implementation of MMProxy
+Rust implementation of UDP protocol MMProxy
 
 # Features
 
