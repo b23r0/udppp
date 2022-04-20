@@ -1,5 +1,5 @@
 # udppp [![Build Status](https://img.shields.io/github/workflow/status/b23r0/udppp/Rust)](https://github.com/b23r0/udppp/actions/workflows/rust.yml) [![ChatOnDiscord](https://img.shields.io/badge/chat-on%20discord-blue)](https://discord.gg/ZKtYMvDFN4) [![Crate](https://img.shields.io/crates/v/udppp)](https://crates.io/crates/udppp)
-Rust implementation of UDP protocol MMProxy
+Rust implementation of UDP protocol MMProxy (only Linux)
 
 # Features
 
